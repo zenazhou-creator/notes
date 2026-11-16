@@ -280,8 +280,8 @@ function renderBar() {
 }
 
 function viewImport() {
-  const ttl = h('input', { id: 'ttl', placeholder: '标题（可留空）' });
-  const src = h('textarea', { id: 'src', placeholder: '粘贴整篇德语文本…' });
+  const ttl = h('input', { id: 'ttl', placeholder: '标题' });
+  const src = h('textarea', { id: 'src', placeholder: '粘贴…' });
   return h('div', {}, ttl, src, btn('拆分句子', () => addDoc(ttl.value, src.value)));
 }
 
