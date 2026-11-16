@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily Reader</title>
+<link rel="icon" href="data:,">
+<style>
+/* ===== 主题：变量集中在 #app 上（小窗里也生效） ===== */
+#app{--bg:#fff;--fg:#2a2a2a;--dim:#8a8a8a;--line:#e8e8e8;--box:#c8c8c8;
+  position:relative;height:100%;display:flex;flex-direction:column;padding:10px 18px;
+  background:var(--bg);color:var(--fg);font:14px/1.85 Georgia,"Times New Roman","Songti SC","Noto Serif SC",serif}
+#app.stealth{--bg:#f2f2f2;--fg:#7a7a7a;--dim:#b0b0b0;--line:#e6e6e6;--box:#d2d2d2}
+#app.away{opacity:.04}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+#app>*{width:100%;max-width:940px;margin-left:auto;margin-right:auto}
+button,select,input,textarea{font:inherit;color:inherit;background:transparent;border:0;outline:0}
+button{cursor:pointer;color:var(--dim);padding:0 5px}
+button:hover{color:var(--fg)}
+select{color:var(--dim);max-width:200px}
+.dim{color:var(--dim)}
+
+/* ===== 工具栏 / 页脚 ===== */
+#bar{display:flex;flex-wrap:wrap;gap:0 4px;align-items:center;font-size:12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+#bar .sp{flex:1}
+#foot{font-size:12px;color:var(--dim);padding-top:6px}
+#bar,#foot,#mast{font-family:system-ui,"Segoe UI","PingFang SC",sans-serif}
+#bar,#foot{opacity:0;transition:opacity .15s}
+#bar:hover,#foot:hover,#bar:focus-within{opacity:1}
+#mast{display:flex;gap:14px;font-size:12px;color:var(--dim);padding:5px 0;border-bottom:1px solid var(--line)}
+#mast b{color:var(--fg);margin-right:auto;font-weight:600}
+#app.stealth .mark{display:none}
+
+/* ===== 视图 ===== */
+#main{flex:1;overflow:auto;padding:14px 0}
+#sent{font-size:15px;line-height:1.9;white-space:pre-wrap;cursor:text}
+#app.stealth #sent{font-size:14px}
+h1.t{font-size:18px;line-height:1.4;margin:.5em 0 .6em;font-weight:600}
+p.a{margin:0 0 1em}
+.s{cursor:pointer;border-radius:2px}
+.s.cur{background:#e6eefb}
+.s.m1{color:var(--dim)}
+.s.m2{text-decoration:underline dotted var(--dim);text-underline-offset:3px}
+#app.stealth .s.cur{background:#e4e4e4}
+#app.stealth .s.m1{color:inherit}
+#app.stealth .s.m2{text-decoration:none}
+.meta{font-size:12px;margin-bottom:6px}
+#note,#edit,#src,#ttl{display:block;width:100%;border:1px solid var(--box);border-radius:3px;padding:6px 8px;background:transparent}
+#note,#edit{margin-top:10px;resize:vertical;min-height:80px}
+#edit{margin-top:0}
+#src{min-height:55vh;resize:vertical;margin-top:8px}
+.row{display:flex;gap:8px;padding:2px 0;cursor:pointer;border-bottom:1px solid var(--line)}
+.row.on{color:var(--fg);font-weight:600}
+.row span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .n{min-width:3.2em;color:var(--dim)}
+.by{font:12px system-ui,"Segoe UI","PingFang SC",sans-serif;color:var(--dim);margin:-.3em 0 1.1em}
+.cn{color:var(--dim);font-size:10px;margin-left:1px}
+#app.stealth .cn{display:none}
+#wrap{flex:1;min-height:0;display:flex;gap:32px}
+#col{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+#side{flex:none;width:220px;overflow:auto;border-left:1px solid var(--line);padding:14px 0 14px 16px;font:12px/1.6 system-ui,"Segoe UI","PingFang SC",sans-serif}
+#side section{margin-bottom:16px}
+#side h3{font-size:12px;font-weight:600;margin:0 0 4px}
+#side .sq{width:100%;border:1px solid var(--box);border-radius:3px;padding:3px 8px;margin-bottom:14px}
+#side .li{color:var(--dim);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#side .li:hover{color:var(--fg)}
+#side .li.off{cursor:default}
+#side .li.on{color:var(--fg);font-weight:600}
+@media (max-width:780px){#side{display:none}}
+#cmt{display:flex;flex-direction:column;max-height:46%;border-top:1px solid var(--line);padding-top:8px;font-family:system-ui,"Segoe UI","PingFang SC",sans-serif;font-size:13px}
+#cmt[hidden]{display:none}
+#cmt .ch{font-weight:600;margin-bottom:4px}
+#cmt .cl{overflow:auto}
+#cmt .fold{cursor:pointer;color:var(--dim);font-weight:400;margin:0}
+#cmt .fold:hover{color:var(--fg)}
+#cmt .c{display:flex;gap:8px;margin:0 0 8px}
+#cmt .av{flex:none;width:24px;height:24px;border-radius:50%;background:var(--line);color:var(--dim);display:grid;place-items:center;font-size:11px}
+#cmt .nm{font-size:12px;color:var(--dim)}
+#cmt .tx{white-space:pre-wrap}
+#cmt .row2{display:flex;align-items:center;gap:10px}
+#cmt .fix{font-size:12px;color:var(--dim)}
+.bd.ok{color:#5a8a5a}.bd.bad,.wr{color:#b05a5a}
+.wr{text-decoration:underline}
+#app.stealth .bd,#app.stealth .wr{color:inherit}
+#cmt #note{margin-top:4px;min-height:60px}
+#cmt .send{align-self:flex-start;margin:6px 0 2px;border:1px solid var(--box);border-radius:3px;padding:2px 10px;color:var(--fg)}
+#cover{position:absolute;inset:0;background:#fff;color:#444;padding:30px;display:none;z-index:9}
+#app.cover #cover{display:block}
+
+/* ===== 紧凑布局：窗口很小（含弹出小窗）时只留一句话 ===== */
+@media (max-width:540px),(max-height:300px){
+  #bar,#foot,#mast,#cmt .fold{display:none}
+  h1.t{font-size:14px;margin:0 0 .3em}
+  #app{padding:6px 10px}
+  #sent{font-size:13px;line-height:1.5;padding:5px 8px}
+  #main{padding:4px 0}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bar"></div>
+  <div id="mast"><b>Daily Reader</b><span>Startseite</span><span>Archiv</span><span>Über</span></div>
+  <div id="wrap">
+    <div id="col"><div id="main"></div><div id="cmt" hidden></div></div>
+    <aside id="side"></aside>
+  </div>
+  <div id="foot">← → 切换 · 空格 评论区（Ctrl+Enter 发送，Esc 收起） · F 聚焦 · 1/2/0 掌握/待复习/清除 · E 编辑(回车=拆句) · M 并下一句 · L 列表 · H 隐身 · P 小窗 · Esc 老板键</div>
+  <div id="cover">Untitled document<br><br>&nbsp;</div>
+</div>
+<input type="file" id="file" accept=".json" hidden>
+
+<script>
+(() => {
+'use strict';
+
+/* ========== 1. 配置（要改缩写表/快捷键/文案，改这里） ========== */
+const KEY = 'notes.v1';
+const MARK_TXT = ['', '掌握', '待复习'];            // 0 无标记 1 掌握 2 待复习
+const FILTERS = { all: '全部', todo: '待复习', none: '未标记', done: '掌握' };
+const MONTHS = 'Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember';
+const ABBR = ['z\\.\\s?B\\.','d\\.\\s?h\\.','u\\.\\s?a\\.','o\\.\\s?ä\\.','u\\.\\s?U\\.','z\\.\\s?T\\.','v\\.\\s?a\\.','s\\.\\s?o\\.',
+  'usw\\.','bzw\\.','ca\\.','Nr\\.','Dr\\.','Prof\\.','vgl\\.','evtl\\.','ggf\\.','etc\\.','inkl\\.','Str\\.','Mio\\.','Mrd\\.',
+  'Abb\\.','Tel\\.','St\\.','Hr\\.','Fr\\.','Jh\\.'];
+
+const FAKE_POSTS = ['Wie man früher aufsteht', 'Spaziergänge in Berlin', 'Einfach kochen: Linsensuppe', 'Fünf Bücher für den Herbst'];   // 侧边栏占位文章
+const IGNORE_CASE = true;    // 判对错时是否忽略大小写（德语名词大写想严格就改成 false）
+const SIMILAR = 0.6;        // 评论和原句相似度达到这个值，才当作「抄写」来判；低于它就当普通心得，不判
+const FAKE_CATS = ['Alltag', 'Sprache', 'Reisen', 'Kochen', 'Technik'];
+
+/* ========== 2. 分句（纯函数，可单独测试） ========== */
+const PH = '\u0001';
+const RE_ABBR = new RegExp('(?<![\\p{L}])(?:' + ABBR.join('|') + ')', 'gu');
+const RE_NUM  = new RegExp('\\d+\\.(?=\\d|\\s+(?:' + MONTHS + '|[a-zäöüß]))', 'g');   // 3.5 / am 3. Mai / 2. weitere
+const RE_SENT = /[^.!?…]+(?:[.!?…]+["»«“”'’)\]]*)?/g;
+const hideDots = s => s.replace(/\./g, PH);
+
+function splitSentences(text) {
+  const out = [];
+  text.replace(/\r/g, '').split(/\n\s*\n/).forEach(par => {
+    let first = true;                                                  // 段首句标记 para，用于还原博客段落          // 空行=段落边界
+    const t = par.replace(/\s*\n\s*/g, ' ').replace(/[ \t]+/g, ' ').trim();   // 单换行(PDF硬换行)并成空格
+    if (!t) return;
+    const prot = t.replace(RE_ABBR, hideDots).replace(RE_NUM, hideDots);
+    (prot.match(RE_SENT) || []).forEach(s => {
+      s = s.split(PH).join('.').trim();
+      if (s) { out.push({ text: s, para: first }); first = false; }
+    });
+  });
+  return out;
+}
+
+/* ========== 3. 状态与持久化 ========== */
+const defaults = () => ({ docs: [], cur: null, view: 'import', set: { stealth: false, filter: 'all', fade: true, focus: false } });
+let S = migrate(load());
+function load() {
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && Array.isArray(d.docs)) return Object.assign(defaults(), d); } catch (e) {}
+  return defaults();
+}
+let saveT;
+function migrate(d) {                         // 旧版每句一个 note，转成评论列表
+  d.docs.forEach(x => x.sentences.forEach(s => { if (!s.cm) s.cm = s.note ? [{ t: s.note, at: Date.now() }] : []; delete s.note; }));
+  return d;
+}
+function save() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }, 150); }
+const doc = () => S.docs.find(d => d.id === S.cur) || null;
+const matches = s => { const f = S.set.filter; return f === 'all' || (f === 'todo' && s.mark === 2) || (f === 'none' && !s.mark) || (f === 'done' && s.mark === 1); };
+
+let noteOpen = false, editing = false;      // 仅界面状态，不持久化
+
+/* ========== 4. 数据操作 ========== */
+function addDoc(title, text) {
+  const list = splitSentences(text);
+  if (!list.length) return alert('没有识别到句子');
+  const d = { id: Date.now().toString(36), title: title.trim() || list[0].text.slice(0, 24), pos: 0,
+              sentences: list.map(x => ({ text: x.text, para: x.para, cm: [], mark: 0 })) };
+  S.docs.push(d); S.cur = d.id; S.view = 'study'; save(); render();
+}
+function step(dir) {
+  const D = doc(); if (!D) return;
+  for (let i = D.pos + dir; i >= 0 && i < D.sentences.length; i += dir) {
+    if (matches(D.sentences[i])) { D.pos = i; editing = false; save(); render(); return; }
+  }
+}
+function setMark(v) { const D = doc(); if (!D) return; D.sentences[D.pos].mark = v; save(); render(); }
+function mergeNext() {
+  const D = doc(); if (!D || D.pos >= D.sentences.length - 1) return;
+  const a = D.sentences[D.pos], [b] = D.sentences.splice(D.pos + 1, 1);
+  a.text += ' ' + b.text; a.cm = a.cm.concat(b.cm);
+  save(); render();
+}
+function commitEdit(value) {                  // 编辑框里每一行=一句：回车即拆分，清空即删除
+  const D = doc(), parts = value.split('\n').map(x => x.trim()).filter(Boolean);
+  const cur = D.sentences[D.pos];
+  if (!parts.length) D.sentences.splice(D.pos, 1);
+  else {
+    cur.text = parts[0];
+    D.sentences.splice(D.pos + 1, 0, ...parts.slice(1).map(t => ({ text: t, cm: [], mark: 0 })));
+  }
+  D.pos = Math.min(D.pos, D.sentences.length - 1);
+  editing = false; save(); render();
+}
+function exportJSON() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }));
+  a.download = 'notes-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function importJSON(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!Array.isArray(d.docs)) throw 0;
+      d.docs.forEach(n => { const i = S.docs.findIndex(x => x.id === n.id); i < 0 ? S.docs.push(n) : (S.docs[i] = n); });   // 同 id 覆盖，其余合并
+      migrate(S); S.cur = S.cur || (S.docs[0] && S.docs[0].id); S.view = 'study'; save(); render();
+    } catch (e) { alert('文件格式不对'); }
+  };
+  r.readAsText(file);
+}
+
+/* ========== 5. 渲染 ========== */
+const app = document.getElementById('app');
+const q = s => app.querySelector(s);
+const h = (tag, p = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const k in p) {
+    if (k === 'on') Object.entries(p.on).forEach(([n, f]) => e.addEventListener(n, f));
+    else if (k in e) e[k] = p[k]; else e.setAttribute(k, p[k]);
+  }
+  e.append(...kids); return e;
+};
+const btn = (t, fn) => h('button', { textContent: t, on: { click: fn } });
+const go = v => () => { S.view = v; noteOpen = editing = false; save(); render(); };
+
+function render() {
+  app.classList.toggle('stealth', S.set.stealth);
+  document.title = S.set.stealth ? 'Untitled' : 'Daily Reader';
+  renderBar();
+  const m = q('#main'); m.replaceChildren({ import: viewImport, study: viewStudy, list: viewList }[S.view]());
+  renderComments(); renderSide();
+}
+
+/* 侧边栏：「Neueste Beiträge」是真实的文章列表（点击切换），其余是装饰 */
+const li = (text, fn, on) => h('div', { class: 'li' + (on ? ' on' : '') + (fn ? '' : ' off'), textContent: text, on: fn ? { click: fn } : {} });
+const sideSec = (title, ...kids) => h('section', {}, h('h3', { textContent: title }), ...kids);
+function renderSide() {
+  const side = q('#side'); if (!side) return;
+  const docs = S.docs.slice().reverse().slice(0, 5), recent = [];
+  S.docs.forEach(d => d.sentences.forEach((x, i) => x.cm.forEach(c => recent.push({ d, i, c }))));
+  recent.sort((a, b) => b.c.at - a.c.at);
+  const now = new Date(), months = [0, 1, 2].map(k => new Date(now.getFullYear(), now.getMonth() - k, 1).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }));
+  side.replaceChildren(
+    h('input', { class: 'sq', placeholder: 'Suchen…' }),
+    sideSec('Über das Blog', h('div', { class: 'dim', textContent: 'Kurze Texte, jeden Tag ein bisschen lesen.' })),
+    sideSec('Neueste Beiträge',
+      ...docs.map(d => li(d.title, () => { S.cur = d.id; S.view = 'study'; noteOpen = editing = false; save(); render(); }, d.id === S.cur)),
+      ...FAKE_POSTS.slice(0, Math.max(0, 5 - docs.length)).map(t => li(t))),
+    ...(recent.length ? [sideSec('Neueste Kommentare', ...recent.slice(0, 3).map(r =>
+      li('Leser bei „' + r.d.title + '“', () => { S.cur = r.d.id; r.d.pos = r.i; S.view = 'study'; save(); render(); })))] : []),
+    sideSec('Kategorien', ...FAKE_CATS.map(t => li(t))),
+    sideSec('Archiv', ...months.map(t => li(t))));
+}
+
+function renderBar() {
+  const bar = q('#bar'); bar.replaceChildren();
+  if (S.docs.length) {
+    bar.append(h('select', { on: { change: e => { S.cur = e.target.value; S.view = 'study'; save(); render(); } } },
+      ...S.docs.map(d => h('option', { value: d.id, textContent: d.title, selected: d.id === S.cur }))));
+  }
+  bar.append(btn('＋新文本', go('import')), btn('学习', go('study')), btn('列表', go('list')),
+    h('select', { on: { change: e => { S.set.filter = e.target.value; save(); render(); } } },
+      ...Object.entries(FILTERS).map(([k, v]) => h('option', { value: k, textContent: v, selected: k === S.set.filter }))),
+    h('span', { class: 'sp' }),
+    btn('隐身', toggleStealth), btn('小窗', popOut), btn('导出', exportJSON),
+    btn('导入', () => document.getElementById('file').click()),
+    btn('删本篇', () => { const D = doc(); if (D && confirm('删除「' + D.title + '」？')) { S.docs = S.docs.filter(x => x !== D); S.cur = S.docs[0] ? S.docs[0].id : null; S.view = S.cur ? 'study' : 'import'; save(); render(); } }),
+    btn('清空', () => { if (confirm('清空全部文本、备注和标记？建议先点「导出」备份。')) { S.docs = []; S.cur = null; S.view = 'import'; save(); render(); } }));
+}
+
+function viewImport() {
+  const ttl = h('input', { id: 'ttl', placeholder: '标题（可留空）' });
+  const src = h('textarea', { id: 'src', placeholder: '粘贴整篇德语文本…' });
+  return h('div', {}, ttl, src, btn('拆分句子', () => addDoc(ttl.value, src.value)));
+}
+
+const isFocus = () => S.set.focus || !!popWin;            // 弹出小窗时自动用聚焦模式
+/* ---- 抄写判对错：空格不计；ä=ae ö=oe ü=ue ß=ss 两种写法都算对；引号/破折号样式统一 ---- */
+function norm(t) {
+  t = t.normalize('NFC').replace(/[„“”»«]/g, '"').replace(/[’‘]/g, "'").replace(/[–—]/g, '-')
+    .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue').replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+    .replace(/[ßẞ]/g, 'ss').replace(/\s+/g, '');
+  return IGNORE_CASE ? t.toLowerCase() : t;
+}
+function lev(a, b) {                                            // 编辑距离
+  let p = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const c = [i];
+    for (let j = 1; j <= b.length; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    p = c;
+  }
+  return p[b.length];
+}
+function judge(typed, orig) {                                   // 'ok' 全对 / 'bad' 像抄写但有错 / null 不判
+  const a = norm(typed), b = norm(orig);
+  if (!a) return null;
+  if (a === b) return 'ok';
+  return 1 - lev(a, b) / Math.max(a.length, b.length) >= SIMILAR ? 'bad' : null;
+}
+function wordDiff(typed, orig) {                                // 原句里每个词有没有被打对（按词做最长公共子序列）
+  const A = typed.split(/\s+/).filter(Boolean).map(norm), O = orig.split(/\s+/).filter(Boolean), B = O.map(norm);
+  const m = A.length, n = B.length, L = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--) for (let j = n - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const hit = new Set(); let i = 0, j = 0;
+  while (i < m && j < n) { if (A[i] === B[j]) { hit.add(j); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) i++; else j++; }
+  return O.map((w, k) => ({ w, ok: hit.has(k) }));
+}
+
+/* 评论区：固定在页面底部，像博客文章下面的评论。每句话一组评论，用来手敲抄写/写心得 */
+const ago = t => { const m = Math.round((Date.now() - t) / 60000);
+  return m < 1 ? 'gerade eben' : m < 60 ? `vor ${m} Min.` : m < 1440 ? `vor ${Math.round(m / 60)} Std.` : `vor ${Math.round(m / 1440)} Tagen`; };
+function postComment(v) {
+  const t = v.trim(), D = doc(); if (!t || !D) return;
+  const s = D.sentences[D.pos], r = judge(t, s.text);
+  s.cm.push(r ? { t, at: Date.now(), r } : { t, at: Date.now() }); save(); render();
+}
+function renderComments() {
+  const box = q('#cmt'), D = doc();
+  const show = S.view === 'study' && D && D.sentences.length && !editing;
+  box.hidden = !show; if (!show) return;
+  const s = D.sentences[D.pos], n = s.cm.length;
+  if (!noteOpen) {                                   // 收起状态：底部常驻一行，点击或按空格展开
+    box.replaceChildren(h('div', { class: 'ch fold', textContent: n + (n === 1 ? ' Kommentar' : ' Kommentare') + ' zu diesem Satz · Kommentar schreiben ▾',
+      on: { click: () => { noteOpen = true; render(); } } }));
+    return;
+  }
+  const list = h('div', { class: 'cl' }, ...s.cm.map((c, i) => h('div', { class: 'c' },
+    h('div', { class: 'av', textContent: 'L' }),
+    h('div', {}, h('div', { class: 'nm' }, 'Leser · ' + ago(c.at) + ' · ',
+        ...(c.r ? [h('span', { class: 'bd ' + c.r, textContent: c.r === 'ok' ? '✓ richtig · ' : '✗ Fehler · ' })] : []),
+        h('button', { textContent: 'Löschen', on: { click: () => { s.cm.splice(i, 1); save(); render(); } } })),
+      h('div', { class: 'tx', textContent: c.t }),
+      ...(c.r === 'bad' ? [h('div', { class: 'fix' }, 'Richtig: ', ...wordDiff(c.t, s.text).map(x => h('span', { class: x.ok ? '' : 'wr', textContent: x.w + ' ' })))] : [])))));
+  const ta = h('textarea', { id: 'note', placeholder: 'Dein Kommentar…' });
+  const hint = h('span', { class: 'hint dim' });             // 打完且全对时显示 ✓
+  ta.addEventListener('input', () => { hint.textContent = judge(ta.value, s.text) === 'ok' ? '✓ richtig' : ''; });
+  box.replaceChildren(h('div', { class: 'ch', textContent: n + (n === 1 ? ' Kommentar' : ' Kommentare') }), list, ta,
+    h('div', { class: 'row2' }, h('button', { class: 'send', textContent: 'Kommentar abschicken', on: { click: () => postComment(ta.value) } }), hint));
+  setTimeout(() => { ta.focus(); list.scrollTop = list.scrollHeight; });
+}
+
+function viewStudy() {
+  const D = doc();
+  if (!D || !D.sentences.length) return h('p', { class: 'dim', textContent: '还没有内容，点「＋新文本」粘贴一篇。' });
+  if (editing) return viewEdit(D);
+  return isFocus() ? viewFocus(D) : viewArticle(D);
+}
+
+function viewEdit(D) {
+  const ta = h('textarea', { id: 'edit', value: D.sentences[D.pos].text, placeholder: 'Ctrl+Enter 保存 · Esc 取消' });
+  setTimeout(() => ta.focus()); return h('div', {}, ta);
+}
+
+function viewArticle(D) {                                  // 博客模式：整篇正文，当前句淡淡高亮
+  const box = h('div'), s = D.sentences[D.pos];
+  const words = D.sentences.reduce((a, x) => a + x.text.split(/\s+/).length, 0);
+  box.append(h('h1', { class: 't', textContent: D.title }),
+    h('div', { class: 'by', textContent: 'Von Redaktion · ' + new Date(parseInt(D.id, 36)).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) + ' · ' + Math.max(1, Math.round(words / 200)) + ' Min. Lesezeit' }));
+  let p = null, curP = null;
+  D.sentences.forEach((x, i) => {
+    if (!p || x.para) { p = h('p', { class: 'a' }); box.append(p); }
+    p.append(h('span', { class: 's' + (i === D.pos ? ' cur' : '') + (x.mark ? ' m' + x.mark : ''), textContent: x.text + ' ',
+      on: { click: () => { D.pos = i; save(); render(); } } },
+      ...(x.cm.length ? [h('sup', { class: 'cn', textContent: x.cm.length })] : [])));
+    if (i === D.pos) curP = p;
+  });
+  setTimeout(() => { const c = box.querySelector('.cur'); if (c) c.scrollIntoView({ block: 'nearest' }); });
+  return box;
+}
+
+function viewFocus(D) {                                    // 聚焦模式：一次一句
+  const s = D.sentences[D.pos], box = h('div');
+  box.append(h('div', { class: 'meta dim' }, `${D.pos + 1} / ${D.sentences.length}`,
+    h('span', { class: 'mark', textContent: s.mark ? '  ' + MARK_TXT[s.mark] : '' })));
+  box.append(h('div', { id: 'sent', textContent: s.text, on: { dblclick: () => { editing = true; render(); } } }));
+  return box;
+}
+
+function viewList() {
+  const D = doc(); if (!D) return h('p', { class: 'dim', textContent: '还没有内容。' });
+  const box = h('div');
+  D.sentences.forEach((s, i) => {
+    if (!matches(s)) return;
+    box.append(h('div', { class: 'row' + (i === D.pos ? ' on' : ''), on: { click: () => { D.pos = i; S.view = 'study'; save(); render(); } } },
+      h('span', { class: 'n', textContent: (i + 1) + (s.mark === 1 ? ' ✓' : s.mark === 2 ? ' ?' : '') }),
+      h('span', { textContent: s.text })));
+  });
+  return box;
+}
+
+/* ========== 6. 隐身 / 老板键 / 小窗 ========== */
+function toggleStealth() { S.set.stealth = !S.set.stealth; save(); render(); }
+function panic() { app.classList.toggle('cover'); document.title = app.classList.contains('cover') ? 'Untitled' : (S.set.stealth ? 'Untitled' : 'Daily Reader'); }
+
+let popWin = null;
+async function popOut() {
+  if (popWin) { popWin.close(); return; }
+  let w = null;
+  try { if (window.documentPictureInPicture) w = await documentPictureInPicture.requestWindow({ width: 380, height: 190 }); } catch (e) {}
+  if (!w) w = window.open('', 'notes_pop', 'popup,width=400,height=210');
+  if (!w) return alert('小窗被浏览器拦截了');
+  popWin = w;
+  const st = w.document.createElement('style'); st.textContent = document.querySelector('style').textContent;
+  w.document.head.append(st);
+  w.document.title = 'Untitled';
+  w.document.body.append(app);                  // 把整个界面搬进小窗，关闭时搬回
+  attach(w); render();
+  w.addEventListener('pagehide', () => { document.body.prepend(app); popWin = null; render(); });
+}
+
+/* ========== 7. 快捷键（集中在这一处） ========== */
+const STUDY_KEYS = {
+  ArrowLeft: () => step(-1), ArrowRight: () => step(1),
+  ' ': () => { noteOpen = !noteOpen; render(); },
+  '1': () => setMark(1), '2': () => setMark(2), '0': () => setMark(0),
+  f: () => { S.set.focus = !S.set.focus; save(); render(); },
+  e: () => { editing = true; noteOpen = false; render(); }, m: mergeNext,
+};
+const GLOBAL_KEYS = {
+  l: () => { S.view = S.view === 'list' ? 'study' : 'list'; save(); render(); },
+  h: toggleStealth, p: popOut, '`': panic, Escape: panic,
+};
+function onKey(e) {
+  const t = e.target, typing = /^(TEXTAREA|INPUT|SELECT)$/.test(t.tagName);
+  if (typing) {
+    if (e.key === 'Escape') { e.preventDefault(); if (t.id === 'note') noteOpen = false; else if (t.id === 'edit') editing = false; else return t.blur(); render(); }
+    else if (t.id === 'edit' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitEdit(t.value); }
+    else if (t.id === 'note' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); postComment(t.value); }
+    else if (t.id === 'note' && (e.ctrlKey || e.metaKey) && /^Arrow(Left|Right)$/.test(e.key)) { e.preventDefault(); step(e.key === 'ArrowLeft' ? -1 : 1); }
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  const fn = GLOBAL_KEYS[k] || (S.view === 'study' && STUDY_KEYS[k]);
+  if (fn) { e.preventDefault(); fn(); }
+}
+function attach(win) {                          // 主窗口和小窗都挂一遍
+  win.addEventListener('keydown', onKey);
+  win.addEventListener('blur', () => { if (S.set.fade) app.classList.add('away'); });   // 失焦自动淡出
+  win.addEventListener('focus', () => app.classList.remove('away'));
+}
+
+/* ========== 8. 启动 ========== */
+document.getElementById('file').addEventListener('change', e => { if (e.target.files[0]) importJSON(e.target.files[0]); e.target.value = ''; });
+if (!doc()) { S.cur = S.docs[0] ? S.docs[0].id : null; if (!S.cur) S.view = 'import'; }
+attach(window);
+render();
+})();
+</script>
+</body>
+</html>
